@@ -55,7 +55,7 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-[290px] border-r border-gray-200 bg-white md:block">
       <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#465fff] font-bold text-white">BN</div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#465fff] font-bold text-white">BMS</div>
         <div className="ml-3">
           <span className="block font-semibold text-gray-900">Bakso Mas Sular</span>
           <span className="text-xs text-gray-500">Admin CMS</span>
