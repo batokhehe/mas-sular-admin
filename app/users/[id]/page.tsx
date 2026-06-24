@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { ROUTE_PERMISSIONS } from '@/lib/access';
 import { fetchAdminRoles, fetchAdminUser, updateAdminUser, AdminRole, AdminUserDetail } from '@/lib/admin';
+import { ADMIN_LOADING_MESSAGES, ADMIN_SUCCESS_MESSAGES, confirmStatusChange, confirmUpdate, runWithFeedback } from '@/lib/admin-alert';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -56,7 +57,20 @@ export default function UserDetailPage() {
 
   const handleSave = async () => {
     if (!userId) return;
-    await updateUser.mutateAsync({ id: userId, input: { isActive, roleIds: selectedRoleIds } });
+    // Activate/Deactivate confirm shows the status transition; pure role edits use a generic save confirm.
+    const wasActive = data?.isActive;
+    const activeChanged = wasActive !== undefined && wasActive !== isActive;
+    await runWithFeedback({
+      confirm: () =>
+        activeChanged
+          ? confirmStatusChange(wasActive ? 'Active' : 'Disabled', isActive ? 'Active' : 'Disabled', {
+              title: isActive ? 'Activate User?' : 'Deactivate User?',
+            })
+          : confirmUpdate({ title: 'Save changes?' }),
+      loading: ADMIN_LOADING_MESSAGES.update,
+      success: ADMIN_SUCCESS_MESSAGES.updated,
+      action: () => updateUser.mutateAsync({ id: userId, input: { isActive, roleIds: selectedRoleIds } }),
+    });
   };
 
   if (isLoading || rolesQuery.isLoading) {
@@ -166,9 +180,6 @@ export default function UserDetailPage() {
             <Button onClick={handleSave} disabled={updateUser.isPending} className="w-full">
               {updateUser.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
-            {updateUser.isError ? (
-              <p className="text-sm text-red-600">Unable to update user. Please try again.</p>
-            ) : null}
           </div>
         </Card>
       </div>

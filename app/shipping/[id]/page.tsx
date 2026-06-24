@@ -7,6 +7,7 @@ import { AdminShell } from '@/components/layout/admin-shell';
 import { ShipmentForm, ShipmentFormValues } from '@/app/shipping/components/shipment-form';
 import { ROUTE_PERMISSIONS } from '@/lib/access';
 import { fetchAdminOrders, fetchAdminShipment, updateAdminShipment, deleteAdminShipment } from '@/lib/admin';
+import { ADMIN_LOADING_MESSAGES, ADMIN_SUCCESS_MESSAGES, confirmDelete, runWithFeedback } from '@/lib/admin-alert';
 
 export default function ShipmentDetailPage() {
   const router = useRouter();
@@ -81,12 +82,19 @@ export default function ShipmentDetailPage() {
         initialValues={shipmentQuery.data}
         onSubmit={async (values) => {
           if (!shipmentId) return;
-          await updateShipment.mutateAsync({ id: shipmentId, input: values });
-          return;
+          await runWithFeedback({
+            loading: ADMIN_LOADING_MESSAGES.update,
+            success: ADMIN_SUCCESS_MESSAGES.updated,
+            action: () => updateShipment.mutateAsync({ id: shipmentId, input: values }),
+          });
         }}
         onDelete={async () => {
-          await deleteShipment.mutateAsync();
-          return;
+          await runWithFeedback({
+            confirm: () => confirmDelete('Shipment'),
+            loading: ADMIN_LOADING_MESSAGES.delete,
+            success: ADMIN_SUCCESS_MESSAGES.deleted('Shipment'),
+            action: () => deleteShipment.mutateAsync(),
+          });
         }}
         submitLabel={updateShipment.isPending ? 'Save changes' : 'Save shipment'}
         isSubmitting={updateShipment.isPending}
