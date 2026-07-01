@@ -427,3 +427,62 @@ export function deleteAdminShipment(id: string) {
     method: 'DELETE',
   });
 }
+
+export type AdminPaymentAccount = {
+  id: string;
+  bankName: string;
+  bankCode?: string | null;
+  accountName: string;
+  accountNumber: string;
+  logoUrl?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  isVisible: boolean;
+  displayOrder: number;
+  createdAt: string;
+};
+
+export type PaymentAccountInput = {
+  bankName: string;
+  bankCode?: string;
+  accountName: string;
+  accountNumber: string;
+  logoUrl?: string;
+  notes?: string;
+  isVisible?: boolean;
+  displayOrder?: number;
+};
+
+export function fetchPaymentAccounts() {
+  return api<AdminPaymentAccount[]>('/admin/payment-accounts');
+}
+
+export function fetchPaymentAccount(id: string) {
+  return api<AdminPaymentAccount>(`/admin/payment-accounts/${id}`);
+}
+
+export function createPaymentAccount(input: PaymentAccountInput) {
+  return api<AdminPaymentAccount>('/admin/payment-accounts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updatePaymentAccount(id: string, input: Partial<PaymentAccountInput>) {
+  return api<AdminPaymentAccount>(`/admin/payment-accounts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function activatePaymentAccount(id: string) {
+  return api<AdminPaymentAccount>(`/admin/payment-accounts/${id}/activate`, {
+    method: 'PATCH',
+  });
+}
+
+export function deletePaymentAccount(id: string) {
+  return api<void>(`/admin/payment-accounts/${id}`, {
+    method: 'DELETE',
+  });
+}

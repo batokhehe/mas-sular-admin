@@ -37,6 +37,7 @@ const sections = [
     items: [
       { href: '/users', label: 'Users', icon: Users, permissions: ROUTE_PERMISSIONS.users },
       { href: '/roles', label: 'Roles & Permissions', icon: Shield, permissions: ROUTE_PERMISSIONS.roles },
+      { href: '/payment-accounts', label: 'Payment Accounts', icon: CreditCard, permissions: ROUTE_PERMISSIONS.paymentAccounts },
     ],
   },
 ];
