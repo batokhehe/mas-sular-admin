@@ -22,7 +22,7 @@ export default function DashboardPage() {
   });
   const orders = useQuery({
     queryKey: ['admin-orders', 'dashboard'],
-    queryFn: fetchAdminOrders,
+    queryFn: () => fetchAdminOrders({ limit: 5 }),
     retry: false,
     enabled: canFetchProtectedApis,
   });
@@ -204,7 +204,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {orders.data?.slice(0, 5).map((order) => (
+              {orders.data?.items.slice(0, 5).map((order) => (
                 <tr key={order.id} className="border-b border-gray-50 last:border-0">
                   <td className="py-4 font-medium text-gray-800">{order.orderNumber}</td>
                   <td className="py-4 text-gray-500">{order.user?.name ?? '-'}</td>

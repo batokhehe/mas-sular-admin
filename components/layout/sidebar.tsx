@@ -9,10 +9,15 @@ import {
   Gift,
   Image,
   LayoutDashboard,
+  ArrowLeftRight,
   Layers,
+  MapPinned,
+  PackageCheck,
   Shield,
+  Store,
   Truck,
   Users,
+  Warehouse,
 } from 'lucide-react';
 import { useAdminPermissions } from '@/lib/auth';
 import { hasAnyPermission } from '@/lib/permissions';
@@ -29,6 +34,11 @@ const sections = [
       { href: '/orders', label: 'Orders', icon: ClipboardList, permissions: ROUTE_PERMISSIONS.orders },
       { href: '/payments', label: 'Order Verification', icon: CreditCard, permissions: ROUTE_PERMISSIONS.payments },
       { href: '/shipping', label: 'Shipping', icon: Truck, permissions: ROUTE_PERMISSIONS.shipments },
+      { href: '/delivery-coverage', label: 'Delivery Coverage', icon: MapPinned, permissions: ROUTE_PERMISSIONS.deliveryCoverage },
+      { href: '/inventory-reservations', label: 'Inventory Reservations', icon: PackageCheck, permissions: ROUTE_PERMISSIONS.inventoryReservations },
+      { href: '/inventory/products', label: 'Product Inventory', icon: Warehouse, permissions: ROUTE_PERMISSIONS.productInventory },
+      { href: '/inventory/outlets', label: 'Outlet Inventory', icon: Store, permissions: ROUTE_PERMISSIONS.productInventory },
+      { href: '/inventory/transfers', label: 'Stock Transfer', icon: ArrowLeftRight, permissions: ROUTE_PERMISSIONS.stockTransfers },
       { href: '/promos', label: 'Voucher', icon: Gift, permissions: ROUTE_PERMISSIONS.promos },
     ],
   },
@@ -38,6 +48,7 @@ const sections = [
       { href: '/users', label: 'Users', icon: Users, permissions: ROUTE_PERMISSIONS.users },
       { href: '/roles', label: 'Roles & Permissions', icon: Shield, permissions: ROUTE_PERMISSIONS.roles },
       { href: '/payment-accounts', label: 'Payment Accounts', icon: CreditCard, permissions: ROUTE_PERMISSIONS.paymentAccounts },
+      { href: '/outlets', label: 'Outlet Configuration', icon: Store, permissions: ROUTE_PERMISSIONS.outlets },
     ],
   },
 ];

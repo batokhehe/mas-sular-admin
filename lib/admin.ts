@@ -1,5 +1,22 @@
 import { api } from './api';
 
+/** Standard paginated envelope returned by admin list endpoints. */
+export type Paginated<T> = {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PageParams = { page?: number; limit?: number };
+
+/** Append page/limit to a query string builder (only when set). */
+function appendPage(params: URLSearchParams, page?: PageParams) {
+  if (page?.page) params.set('page', String(page.page));
+  if (page?.limit) params.set('limit', String(page.limit));
+}
+
 export type AdminCategory = {
   id: string;
   name: string;
@@ -125,7 +142,24 @@ export type AdminShipment = {
   cost: number;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
-  order: AdminOrder;
+  order: AdminOrder & { address?: AdminAddress | null };
+};
+
+type AdminRegionRef = { id: string; code: string; name: string };
+
+export type AdminAddress = {
+  id: string;
+  label: string;
+  recipientName: string;
+  phone: string;
+  fullAddress: string;
+  notes?: string | null;
+  addressDetail?: string | null;
+  postalCode?: string | null;
+  province?: AdminRegionRef | null;
+  city?: (AdminRegionRef & { type: 'CITY' | 'REGENCY' }) | null;
+  district?: AdminRegionRef | null;
+  village?: (AdminRegionRef & { postalCode: string | null }) | null;
 };
 
 export type AdminUser = {
@@ -139,13 +173,7 @@ export type AdminUser = {
 };
 
 export type AdminUserDetail = AdminUser & {
-  addresses: Array<{
-    id: string;
-    label: string;
-    recipientName: string;
-    phone: string;
-    fullAddress: string;
-  }>;
+  addresses: AdminAddress[];
   orders: Array<{
     id: string;
     orderNumber: string;
@@ -271,8 +299,13 @@ export function fetchAdminDashboard() {
   return api<AdminDashboard>('/admin/dashboard');
 }
 
-export function fetchAdminOrders() {
-  return api<AdminOrder[]>('/admin/orders');
+export function fetchAdminOrders(params: PageParams & { status?: string; paymentStatus?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  if (params.paymentStatus) q.set('paymentStatus', params.paymentStatus);
+  appendPage(q, params);
+  const query = q.toString();
+  return api<Paginated<AdminOrder>>(`/admin/orders${query ? `?${query}` : ''}`);
 }
 
 export function fetchAdminPendingPayments() {
@@ -293,18 +326,23 @@ export function rejectAdminPayment(paymentId: string) {
   });
 }
 
-export function fetchAdminShipments() {
-  return api<AdminShipment[]>('/admin/shipments');
+export function fetchAdminShipments(params: PageParams & { status?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  appendPage(q, params);
+  const query = q.toString();
+  return api<Paginated<AdminShipment>>(`/admin/shipments${query ? `?${query}` : ''}`);
 }
 
 export type AdminOrderDetail = AdminOrder & {
-  address?: {
-    id: string;
-    label: string;
-    recipientName: string;
-    phone: string;
-    fullAddress: string;
-  };
+  address?: AdminAddress | null;
+  // Selected shipping-provider snapshot (read-only; no manual cost input).
+  shippingProvider?: string | null;
+  shippingService?: string | null;
+  shippingServiceName?: string | null;
+  shippingCost?: number | null;
+  trackingNumber?: string | null;
+  deliveryFee?: number | null;
   items: Array<{
     id: string;
     productId: string;
@@ -331,6 +369,7 @@ export type AdminOrderDetail = AdminOrder & {
     cost: number;
     trackingNumber?: string | null;
     trackingUrl?: string | null;
+    history?: Array<{ id: string; providerStatus: string; mappedStatus: string; changedAt: string }>;
   } | null;
   events: Array<{ id: string; status: string; note?: string | null; createdAt: string }>;
 };
@@ -485,4 +524,279 @@ export function deletePaymentAccount(id: string) {
   return api<void>(`/admin/payment-accounts/${id}`, {
     method: 'DELETE',
   });
+}
+
+// ---------------- Delivery Coverage ----------------
+
+export type CoverageType = 'DELIVERY' | 'PICKUP_ONLY' | 'DISABLED';
+
+export type AdminDeliveryCoverage = {
+  id: string;
+  provinceId: string;
+  cityId: string;
+  districtId?: string | null;
+  villageId?: string | null;
+  coverageType: CoverageType;
+  deliveryFee: number;
+  minimumOrder: number;
+  estimatedMinutes: number;
+  isActive: boolean;
+  createdAt: string;
+  province?: { id: string; name: string } | null;
+  city?: { id: string; name: string; type: 'CITY' | 'REGENCY' } | null;
+  district?: { id: string; name: string } | null;
+  village?: { id: string; name: string } | null;
+};
+
+export type DeliveryCoverageInput = {
+  provinceId: string;
+  cityId: string;
+  districtId?: string | null;
+  villageId?: string | null;
+  coverageType: CoverageType;
+  deliveryFee: number;
+  minimumOrder: number;
+  estimatedMinutes: number;
+  isActive?: boolean;
+};
+
+export type DeliveryCoverageFilters = {
+  search?: string;
+  coverageType?: CoverageType | '';
+  isActive?: 'true' | 'false' | '';
+};
+
+export function fetchDeliveryCoverages(filters: DeliveryCoverageFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.search) params.set('search', filters.search);
+  if (filters.coverageType) params.set('coverageType', filters.coverageType);
+  if (filters.isActive) params.set('isActive', filters.isActive);
+  const query = params.toString();
+  return api<AdminDeliveryCoverage[]>(`/admin/delivery-coverage${query ? `?${query}` : ''}`);
+}
+
+export function fetchDeliveryCoverage(id: string) {
+  return api<AdminDeliveryCoverage>(`/admin/delivery-coverage/${id}`);
+}
+
+export function createDeliveryCoverage(input: DeliveryCoverageInput) {
+  return api<AdminDeliveryCoverage>('/admin/delivery-coverage', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateDeliveryCoverage(id: string, input: Partial<DeliveryCoverageInput>) {
+  return api<AdminDeliveryCoverage>(`/admin/delivery-coverage/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function setDeliveryCoverageActive(id: string, isActive: boolean) {
+  return api<AdminDeliveryCoverage>(`/admin/delivery-coverage/${id}/active`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function deleteDeliveryCoverage(id: string) {
+  return api<void>(`/admin/delivery-coverage/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// ---------------- Outlet configuration (shipping origin) ----------------
+
+export type AdminOutlet = {
+  id: string;
+  name: string;
+  addressDetail?: string | null;
+  provinceId?: string | null;
+  cityId?: string | null;
+  districtId?: string | null;
+  villageId?: string | null;
+  postalCode?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  isActive: boolean;
+  createdAt: string;
+  province?: { id: string; name: string } | null;
+  city?: { id: string; name: string; type: 'CITY' | 'REGENCY' } | null;
+  district?: { id: string; name: string } | null;
+  village?: { id: string; name: string } | null;
+};
+
+export type OutletInput = {
+  name: string;
+  addressDetail?: string;
+  provinceId?: string | null;
+  cityId?: string | null;
+  districtId?: string | null;
+  villageId?: string | null;
+  postalCode: string;
+  latitude: number;
+  longitude: number;
+};
+
+export function fetchOutlets() {
+  return api<AdminOutlet[]>('/admin/outlets');
+}
+
+export function fetchOutlet(id: string) {
+  return api<AdminOutlet>(`/admin/outlets/${id}`);
+}
+
+export function createOutlet(input: OutletInput) {
+  return api<AdminOutlet>('/admin/outlets', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateOutlet(id: string, input: Partial<OutletInput>) {
+  return api<AdminOutlet>(`/admin/outlets/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function activateOutlet(id: string) {
+  return api<AdminOutlet>(`/admin/outlets/${id}/activate`, { method: 'PATCH' });
+}
+
+export function deleteOutlet(id: string) {
+  return api<void>(`/admin/outlets/${id}`, { method: 'DELETE' });
+}
+
+// ---------------- Shipment (fulfillment) ----------------
+
+export type ShipmentRetryResult = {
+  ok: boolean;
+  status: string;
+  trackingNumber?: string | null;
+  error?: string;
+};
+
+/** Retry courier shipment creation for an order whose shipment is FAILED. */
+export function retryShipment(orderId: string) {
+  return api<ShipmentRetryResult>(`/admin/orders/${orderId}/shipment/retry`, { method: 'POST' });
+}
+
+// ---------------- Inventory reservations ----------------
+
+export type ReservationStatus = 'RESERVED' | 'COMMITTED' | 'RELEASED' | 'EXPIRED' | 'CANCELLED';
+
+export type AdminReservation = {
+  id: string;
+  orderId: string;
+  productId: string;
+  outletId?: string | null;
+  reservedQty: number;
+  committedQty: number;
+  releasedQty: number;
+  status: ReservationStatus;
+  expiresAt?: string | null;
+  createdAt: string;
+  order?: { id: string; orderNumber: string; user?: { id: string; name: string; email: string } | null } | null;
+  product?: { id: string; name: string } | null;
+  outlet?: { id: string; name: string } | null;
+};
+
+export type AdminReservationDetail = AdminReservation & {
+  history?: Array<{ id: string; status: ReservationStatus; note?: string | null; createdAt: string }>;
+};
+
+export type ReservationFilters = {
+  status?: ReservationStatus | '';
+  outletId?: string;
+  expired?: 'true' | '';
+  search?: string;
+} & PageParams;
+
+export function fetchReservations(filters: ReservationFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.outletId) params.set('outletId', filters.outletId);
+  if (filters.expired) params.set('expired', filters.expired);
+  if (filters.search) params.set('search', filters.search);
+  appendPage(params, filters);
+  const query = params.toString();
+  return api<Paginated<AdminReservation>>(`/admin/inventory-reservations${query ? `?${query}` : ''}`);
+}
+
+export function fetchReservation(id: string) {
+  return api<AdminReservationDetail>(`/admin/inventory-reservations/${id}`);
+}
+
+// ---------------- Multi-outlet inventory & transfers ----------------
+
+export type ProductInventoryRow = {
+  id: string;
+  productId: string;
+  outletId: string;
+  stock: number;
+  reserved: number;
+  available: number;
+  product?: { id: string; name: string } | null;
+  outlet?: { id: string; name: string } | null;
+};
+
+export type OutletInventoryReport = {
+  outletId: string;
+  outletName: string;
+  stock: number;
+  reserved: number;
+  available: number;
+  committed: number;
+};
+
+export type TransferStatus = 'REQUESTED' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'CANCELLED';
+
+export type StockTransferRow = {
+  id: string;
+  productId: string;
+  quantity: number;
+  status: TransferStatus;
+  note?: string | null;
+  createdAt: string;
+  product?: { id: string; name: string } | null;
+  fromOutlet?: { id: string; name: string } | null;
+  toOutlet?: { id: string; name: string } | null;
+  history?: Array<{ id: string; status: TransferStatus; note?: string | null; createdAt: string }>;
+};
+
+export function fetchProductInventory(params: { search?: string; outletId?: string } & PageParams = {}) {
+  const q = new URLSearchParams();
+  if (params.search) q.set('search', params.search);
+  if (params.outletId) q.set('outletId', params.outletId);
+  appendPage(q, params);
+  const query = q.toString();
+  return api<Paginated<ProductInventoryRow>>(`/admin/product-inventory${query ? `?${query}` : ''}`);
+}
+
+export function fetchInventoryReport() {
+  return api<OutletInventoryReport[]>('/admin/inventory-report');
+}
+
+export function adjustStock(input: { productId: string; outletId: string; stock: number; note?: string }) {
+  return api<ProductInventoryRow>('/admin/product-inventory/adjust', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function fetchTransfers(params: { status?: TransferStatus } & PageParams = {}) {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  appendPage(q, params);
+  const query = q.toString();
+  return api<Paginated<StockTransferRow>>(`/admin/stock-transfers${query ? `?${query}` : ''}`);
+}
+
+export function fetchTransfer(id: string) {
+  return api<StockTransferRow>(`/admin/stock-transfers/${id}`);
+}
+
+export function requestTransfer(input: { productId: string; fromOutletId: string; toOutletId: string; quantity: number; note?: string }) {
+  return api<StockTransferRow>('/admin/stock-transfers', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function approveTransfer(id: string) {
+  return api<StockTransferRow>(`/admin/stock-transfers/${id}/approve`, { method: 'PATCH' });
+}
+
+export function completeTransfer(id: string) {
+  return api<StockTransferRow>(`/admin/stock-transfers/${id}/complete`, { method: 'PATCH' });
 }

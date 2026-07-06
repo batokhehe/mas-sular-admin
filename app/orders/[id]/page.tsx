@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { ROUTE_PERMISSIONS } from '@/lib/access';
-import { fetchAdminOrder, updateAdminOrderStatus, AdminOrderDetail } from '@/lib/admin';
+import { fetchAdminOrder, updateAdminOrderStatus, retryShipment, AdminOrderDetail } from '@/lib/admin';
+import { formatAdminAddressLine } from '@/lib/format-address';
+import { ShipmentTimeline } from '@/app/orders/components/shipment-timeline';
 import { ADMIN_LOADING_MESSAGES, ADMIN_SUCCESS_MESSAGES, confirmStatusChange, runWithFeedback } from '@/lib/admin-alert';
 
 const orderStatusOptions = ['PROCESSING', 'DELIVERING', 'COMPLETED', 'CANCELLED'] as const;
@@ -48,6 +50,23 @@ export default function OrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     },
   });
+
+  const retryMutation = useMutation({
+    mutationFn: () => {
+      if (!orderId) throw new Error('Missing order ID');
+      return retryShipment(orderId);
+    },
+    onSuccess: () => {
+      if (orderId) queryClient.invalidateQueries({ queryKey: ['admin-order', orderId] });
+    },
+  });
+
+  const handleRetryShipment = () =>
+    runWithFeedback({
+      loading: 'Creating shipment...',
+      success: 'Shipment retry completed',
+      action: () => retryMutation.mutateAsync(),
+    });
 
   if (isLoading) {
     return (
@@ -106,11 +125,63 @@ export default function OrderDetailPage() {
 
             {order.shipment ? (
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-400">Shipment</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase text-gray-400">Shipment</p>
+                  <Badge tone={order.shipment.status === 'FAILED' ? 'danger' : order.shipment.status === 'DELIVERED' ? 'success' : 'brand'}>
+                    {order.shipment.status}
+                  </Badge>
+                </div>
                 <p className="mt-2 font-medium text-gray-900">{order.shipment.provider} • {order.shipment.service}</p>
-                <p className="text-sm text-gray-500">Status: {order.shipment.status}</p>
-                {order.shipment.trackingNumber ? (
-                  <p className="text-sm text-gray-500">Tracking: {order.shipment.trackingNumber}</p>
+                <p className="text-sm text-gray-500">
+                  Tracking: {order.shipment.trackingNumber ?? 'Not assigned yet'}
+                </p>
+                <ShipmentTimeline currentStatus={order.shipment.status} history={order.shipment.history} />
+                {/* Recoverable: a FAILED booking, or a stranded shipment that was paid
+                    but never booked — still RATE_SELECTED, or claimed-then-stuck in
+                    PENDING by reconciliation — with no tracking number. */}
+                {order.shipment.status === 'FAILED' ||
+                ((order.shipment.status === 'RATE_SELECTED' || order.shipment.status === 'PENDING') &&
+                  !order.shipment.trackingNumber) ? (
+                  <PermissionGate permissions={ROUTE_PERMISSIONS.shipmentCreate}>
+                    <Button
+                      className="mt-3 bg-white text-[#465fff] ring-1 ring-gray-200 hover:bg-gray-50"
+                      onClick={handleRetryShipment}
+                      disabled={retryMutation.isPending}
+                    >
+                      Retry Shipment
+                    </Button>
+                  </PermissionGate>
+                ) : null}
+              </div>
+            ) : null}
+
+            {order.shippingProvider || order.shippingServiceName ? (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase text-gray-400">Shipping (selected at checkout)</p>
+                <p className="mt-2 font-medium text-gray-900">
+                  {order.shippingServiceName ?? order.shippingProvider}
+                </p>
+                <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+                  <p>Provider: {order.shippingProvider ?? '—'}</p>
+                  <p>Service: {order.shippingService ?? '—'}</p>
+                  <p>
+                    Shipping cost: Rp{' '}
+                    {(order.shippingCost ?? order.deliveryFee ?? 0).toLocaleString('id-ID')}
+                  </p>
+                  <p>Tracking: {order.trackingNumber ?? 'Not assigned yet'}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {order.address ? (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase text-gray-400">Delivery Address</p>
+                <p className="mt-2 font-medium text-gray-900">
+                  {order.address.recipientName} • {order.address.phone}
+                </p>
+                <p className="text-sm text-gray-500">{formatAdminAddressLine(order.address)}</p>
+                {order.address.notes ? (
+                  <p className="mt-1 text-sm text-gray-500">Notes: {order.address.notes}</p>
                 ) : null}
               </div>
             ) : null}

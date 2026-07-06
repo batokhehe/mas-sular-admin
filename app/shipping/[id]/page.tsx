@@ -7,6 +7,7 @@ import { AdminShell } from '@/components/layout/admin-shell';
 import { ShipmentForm, ShipmentFormValues } from '@/app/shipping/components/shipment-form';
 import { ROUTE_PERMISSIONS } from '@/lib/access';
 import { fetchAdminOrders, fetchAdminShipment, updateAdminShipment, deleteAdminShipment } from '@/lib/admin';
+import { formatAdminAddressLine } from '@/lib/format-address';
 import { ADMIN_LOADING_MESSAGES, ADMIN_SUCCESS_MESSAGES, confirmDelete, runWithFeedback } from '@/lib/admin-alert';
 
 export default function ShipmentDetailPage() {
@@ -23,8 +24,8 @@ export default function ShipmentDetailPage() {
   });
 
   const ordersQuery = useQuery({
-    queryKey: ['admin-orders'],
-    queryFn: fetchAdminOrders,
+    queryKey: ['admin-orders', 'shipment-options'],
+    queryFn: () => fetchAdminOrders({ limit: 100 }),
     retry: false,
   });
 
@@ -77,8 +78,17 @@ export default function ShipmentDetailPage() {
         </div>
         <Link href="/shipping" className="text-sm font-medium text-[#465fff] hover:text-indigo-700">Back to shipments</Link>
       </div>
+      {shipmentQuery.data.order.address ? (
+        <div className="mb-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm">
+          <p className="text-xs uppercase text-gray-400">Delivery Address</p>
+          <p className="mt-2 font-medium text-gray-900">
+            {shipmentQuery.data.order.address.recipientName} • {shipmentQuery.data.order.address.phone}
+          </p>
+          <p className="text-gray-500">{formatAdminAddressLine(shipmentQuery.data.order.address)}</p>
+        </div>
+      ) : null}
       <ShipmentForm
-        orders={ordersQuery.data}
+        orders={ordersQuery.data.items}
         initialValues={shipmentQuery.data}
         onSubmit={async (values) => {
           if (!shipmentId) return;
