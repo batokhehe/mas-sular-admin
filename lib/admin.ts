@@ -95,6 +95,50 @@ export type AdminDashboard = {
   ordersByStatus: Record<string, number>;
 };
 
+export type HealthLevel = 'green' | 'yellow' | 'red';
+
+export type ExecutiveDashboard = {
+  summary: {
+    todayRevenue: { value: number; previous: number; changePct: number; direction: 'up' | 'down' | 'flat' };
+    todayOrders: { value: number; previous: number; changePct: number; direction: 'up' | 'down' | 'flat' };
+    pendingPayments: number;
+    pendingVerification: number;
+    processing: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+  };
+  salesChart: Array<{ date: string; revenue: number; orders: number }>;
+  paymentChart: {
+    byMethod: Array<{ key: string; count: number }>;
+    byStatus: Array<{ key: string; count: number }>;
+  };
+  topProducts: Array<{ productId: string; name: string; qtySold: number; revenue: number; avgPrice: number }>;
+  topCustomers: Array<{ userId: string; name: string; email: string; orders: number; revenue: number; lastOrder: string | null }>;
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    customer: string;
+    paymentStatus: string;
+    orderStatus: string;
+    shipmentStatus: string | null;
+    total: number;
+  }>;
+  inventoryAlert: {
+    lowStock: number;
+    outOfStock: number;
+    reserved: number;
+    needRestock: Array<{ id: string; name: string; stock: number }>;
+  };
+  shipmentSummary: { waiting: number; inTransit: number; deliveredToday: number; failed: number };
+  systemHealth: Record<'database' | 'redis' | 'rabbitmq' | 'worker' | 'notification', HealthLevel>;
+  generatedAt: string;
+};
+
+export function fetchExecutiveDashboard() {
+  return api<ExecutiveDashboard>('/admin/dashboard/executive');
+}
+
 export type AdminOrder = {
   id: string;
   orderNumber: string;
@@ -127,6 +171,8 @@ export type AdminPayment = {
   status: string;
   amount: number;
   method: string;
+  // Manual BANK_TRANSFER unique code folded into `amount`; null for QRIS/COD/legacy.
+  uniqueCode?: number | null;
   manualBankName?: string | null;
   manualAccountName?: string | null;
   manualReceiptUrl?: string | null;
@@ -308,8 +354,10 @@ export function fetchAdminOrders(params: PageParams & { status?: string; payment
   return api<Paginated<AdminOrder>>(`/admin/orders${query ? `?${query}` : ''}`);
 }
 
-export function fetchAdminPendingPayments() {
-  return api<AdminPayment[]>('/admin/payments/pending-verification');
+export function fetchAdminPendingPayments(search?: string) {
+  const term = search?.trim();
+  const query = term ? `?search=${encodeURIComponent(term)}` : '';
+  return api<AdminPayment[]>(`/admin/payments/pending-verification${query}`);
 }
 
 export function verifyAdminPayment(paymentId: string) {
@@ -343,6 +391,11 @@ export type AdminOrderDetail = AdminOrder & {
   shippingCost?: number | null;
   trackingNumber?: string | null;
   deliveryFee?: number | null;
+  // Accounting + snapshot fields (operations center).
+  subtotal?: number;
+  voucherDiscountAmount?: number;
+  voucherCode?: string | null;
+  outletId?: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -352,13 +405,28 @@ export type AdminOrderDetail = AdminOrder & {
     spicyLevel?: number | null;
     notes?: string | null;
     toppings: Array<{ id: string; name: string; price: number }>;
+    product?: { id: string; sku: string; imageUrl: string } | null;
+  }>;
+  reservations?: Array<{
+    id: string;
+    reservedQty: number;
+    committedQty: number;
+    status: string;
+    outlet?: { id: string; name: string } | null;
+    product?: { id: string; name: string } | null;
   }>;
   payment?: {
     id: string;
     status: string;
     amount: number;
     method: string;
+    uniqueCode?: number | null;
     manualReceiptUrl?: string | null;
+    manualBankName?: string | null;
+    manualAccountName?: string | null;
+    verifiedAt?: string | null;
+    verifiedByUserId?: string | null;
+    createdAt?: string;
     transactions: Array<{ id: string; status: string; amount: number; createdAt: string }>;
   } | null;
   shipment?: {
@@ -376,6 +444,68 @@ export type AdminOrderDetail = AdminOrder & {
 
 export function fetchAdminOrder(id: string) {
   return api<AdminOrderDetail>(`/admin/orders/${id}`);
+}
+
+// ---------------- Order operations center (read-only bundle + internal notes) ----------------
+
+export type TimelineActor = 'customer' | 'admin' | 'system';
+export type OrderTimelineEntry = { at: string; type: string; title: string; description: string; actor: TimelineActor };
+export type OrderAvailableActions = {
+  verifyPayment: boolean;
+  rejectPayment: boolean;
+  retryShipment: boolean;
+  cancelOrder: boolean;
+  downloadReceipt: boolean;
+  openTracking: boolean;
+};
+
+export type OrderOperations = {
+  customerHistory: { totalOrders: number; lifetimeRevenue: number };
+  timeline: OrderTimelineEntry[];
+  availableActions: OrderAvailableActions;
+  auditLogs: Array<{
+    id: string;
+    actorId: string | null;
+    action: string;
+    entity: string;
+    entityId: string | null;
+    ipAddress: string | null;
+    after?: unknown;
+    createdAt: string;
+  }>;
+  notifications: Array<{
+    id: string;
+    channel: string;
+    template: string;
+    status: string;
+    attempts: number;
+    providerMessageId?: string | null;
+    sentAt?: string | null;
+    createdAt: string;
+  }>;
+  paymentAccount: { bankName: string; bankCode?: string | null; accountName: string; accountNumber: string } | null;
+};
+
+export type OrderNote = { id: string; orderId: string; adminId: string; adminName: string; body: string; createdAt: string; updatedAt: string };
+
+export function fetchOrderOperations(id: string) {
+  return api<OrderOperations>(`/admin/orders/${id}/operations`);
+}
+
+export function fetchOrderNotes(id: string) {
+  return api<OrderNote[]>(`/admin/orders/${id}/notes`);
+}
+
+export function createOrderNote(id: string, body: string) {
+  return api<OrderNote>(`/admin/orders/${id}/notes`, { method: 'POST', body: JSON.stringify({ body }) });
+}
+
+export function updateOrderNote(id: string, noteId: string, body: string) {
+  return api<OrderNote>(`/admin/orders/${id}/notes/${noteId}`, { method: 'PATCH', body: JSON.stringify({ body }) });
+}
+
+export function deleteOrderNote(id: string, noteId: string) {
+  return api<{ deleted: boolean }>(`/admin/orders/${id}/notes/${noteId}`, { method: 'DELETE' });
 }
 
 export function updateAdminOrderStatus(id: string, status: string, note?: string) {
