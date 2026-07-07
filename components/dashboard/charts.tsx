@@ -39,6 +39,27 @@ export function TrendChart({ points, color = '#465fff', height = 220 }: { points
   );
 }
 
+/** Simple responsive bar chart (dependency-free SVG). */
+export function BarChart({ values, color = '#ef4444', height = 160 }: { values: number[]; color?: string; height?: number }) {
+  const W = 600;
+  const H = 160;
+  const pad = 6;
+  const max = Math.max(1, ...values);
+  const n = values.length;
+  const bw = n > 0 ? (W - pad * 2) / n : 0;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height }} role="img" aria-label="Bar chart">
+      {[0.25, 0.5, 0.75].map((f) => (
+        <line key={f} x1={pad} x2={W - pad} y1={H * f} y2={H * f} stroke="#f1f5f9" strokeWidth="1" />
+      ))}
+      {values.map((v, i) => {
+        const h = (v / max) * (H - pad * 2);
+        return <rect key={i} x={pad + i * bw + bw * 0.15} y={H - pad - h} width={bw * 0.7} height={Math.max(0, h)} rx="1.5" fill={color} opacity={0.85} />;
+      })}
+    </svg>
+  );
+}
+
 type Segment = { label: string; value: number; color: string };
 
 /** Donut chart with a centered total and a legend. */

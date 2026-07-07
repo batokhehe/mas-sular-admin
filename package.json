@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
+    "test": "node --test lib/system/dashboard-view.test.ts",
     "format": "prettier --write ."
   },
   "dependencies": {

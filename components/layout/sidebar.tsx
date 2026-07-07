@@ -18,6 +18,8 @@ import {
   Truck,
   Users,
   Warehouse,
+  ScrollText,
+  Activity,
 } from 'lucide-react';
 import { useAdminPermissions } from '@/lib/auth';
 import { hasAnyPermission } from '@/lib/permissions';
@@ -49,6 +51,13 @@ const sections = [
       { href: '/roles', label: 'Roles & Permissions', icon: Shield, permissions: ROUTE_PERMISSIONS.roles },
       { href: '/payment-accounts', label: 'Payment Accounts', icon: CreditCard, permissions: ROUTE_PERMISSIONS.paymentAccounts },
       { href: '/outlets', label: 'Outlet Configuration', icon: Store, permissions: ROUTE_PERMISSIONS.outlets },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/system/dashboard', label: 'Dashboard', icon: Activity, permissions: ROUTE_PERMISSIONS.systemLogs },
+      { href: '/system/logs', label: 'Logs', icon: ScrollText, permissions: ROUTE_PERMISSIONS.systemLogs },
     ],
   },
 ];

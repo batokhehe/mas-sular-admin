@@ -930,3 +930,111 @@ export function approveTransfer(id: string) {
 export function completeTransfer(id: string) {
   return api<StockTransferRow>(`/admin/stock-transfers/${id}/complete`, { method: 'PATCH' });
 }
+
+// ---------------- System Logs (enterprise logging center) ----------------
+
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+export type SystemLog = {
+  id: string;
+  createdAt: string;
+  level: LogLevel;
+  module: string;
+  action: string;
+  message: string;
+  requestId?: string | null;
+  userId?: string | null;
+  adminId?: string | null;
+  orderId?: string | null;
+  paymentId?: string | null;
+  shipmentId?: string | null;
+  inventoryReservationId?: string | null;
+  ip?: string | null;
+  method?: string | null;
+  path?: string | null;
+  statusCode?: number | null;
+  durationMs?: number | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type SystemLogFilters = {
+  search?: string;
+  level?: LogLevel | '';
+  module?: string;
+  action?: string;
+  requestId?: string;
+  userId?: string;
+  orderId?: string;
+  paymentId?: string;
+  statusCode?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: 'asc' | 'desc';
+} & PageParams;
+
+export function fetchSystemLogs(filters: SystemLogFilters = {}) {
+  const q = new URLSearchParams();
+  const set = (k: string, v?: string) => {
+    if (v) q.set(k, v);
+  };
+  set('search', filters.search);
+  set('level', filters.level || undefined);
+  set('module', filters.module);
+  set('action', filters.action);
+  set('requestId', filters.requestId);
+  set('userId', filters.userId);
+  set('orderId', filters.orderId);
+  set('paymentId', filters.paymentId);
+  set('statusCode', filters.statusCode);
+  set('dateFrom', filters.dateFrom);
+  set('dateTo', filters.dateTo);
+  set('sort', filters.sort);
+  appendPage(q, filters);
+  const query = q.toString();
+  return api<Paginated<SystemLog>>(`/admin/system/logs${query ? `?${query}` : ''}`);
+}
+
+export function fetchSystemLog(id: string) {
+  return api<SystemLog>(`/admin/system/logs/${id}`);
+}
+
+// ---------------- System (Observability) Dashboard ----------------
+
+export type SysHealthColor = 'green' | 'yellow' | 'red' | 'gray';
+type HourPoint = { hour: string; count: number; avgMs: number };
+type EndpointRow = { endpoint: string; count: number; avgMs: number; maxMs: number };
+type QueueStat = { pending: number; processing: number; failed: number; published: number; oldestPending: string | null; retryCount: number; lastActivity: string | null };
+type ChannelStat = { success: number; failed: number; retry: number; avgSendSec: number; lastSuccess: string | null; lastFailure: string | null };
+
+export type SystemDashboard = {
+  summary: {
+    totalRequestsToday: number;
+    avgResponseTimeMs: number;
+    errorRatePct: number;
+    warningsToday: number;
+    errorsToday: number;
+    activeWorkers: number;
+    pendingNotifications: number;
+    pendingQueue: number;
+  };
+  requestMetrics: { perHour: HourPoint[]; p95Ms: number; topEndpoints: EndpointRow[]; slowestEndpoints: EndpointRow[] };
+  errorMetrics: {
+    byHour: Array<{ hour: string; count: number }>;
+    byModule: Array<{ key: string; count: number }>;
+    byAction: Array<{ key: string; count: number }>;
+    topRecurring: Array<{ message: string; count: number }>;
+  };
+  queueMetrics: { outbox: QueueStat; notification: QueueStat };
+  notificationMetrics: { whatsapp: ChannelStat; email: ChannelStat };
+  workerMetrics: Array<{
+    key: string; name: string; enabled: boolean; running: boolean; status: SysHealthColor;
+    lastExecution: string | null; lastHeartbeat: string | null; success: number; failure: number; avgMs: number;
+  }>;
+  databaseMetrics: { totalOrders: number; todayOrders: number; todayPayments: number; todayShipments: number; totalCustomers: number; avgCheckoutMs: number };
+  cacheMetrics: { connected: boolean; latencyMs: number; lastPing: string; memory: string | null };
+  generatedAt: string;
+};
+
+export function fetchSystemDashboard() {
+  return api<SystemDashboard>('/admin/system/dashboard');
+}
