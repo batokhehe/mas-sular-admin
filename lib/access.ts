@@ -46,5 +46,13 @@ export const ROUTE_PERMISSIONS = {
   stockTransferCreate: ['StockTransfer.create'],
   stockTransferUpdate: ['StockTransfer.update'],
   systemLogs: ['SystemLog.read'],
+  queues: ['Queue.read'],
+  queueRetry: ['Queue.retry'],
+  incidents: ['Incident.read'],
+  incidentManage: ['Incident.manage'],
+  notifications: ['Notification.read'],
+  notificationResend: ['Notification.resend'],
+  audit: ['Audit.read'],
+  auditExport: ['Audit.export'],
 } as const;
 
