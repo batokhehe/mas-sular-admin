@@ -52,6 +52,8 @@ export const ROUTE_PERMISSIONS = {
   incidentManage: ['Incident.manage'],
   notifications: ['Notification.read'],
   notificationResend: ['Notification.resend'],
+  notificationSend: ['Notification.send'],
+  communications: ['Notification.read'],
   audit: ['Audit.read'],
   auditExport: ['Audit.export'],
 } as const;

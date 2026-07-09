@@ -26,6 +26,7 @@ import {
   Gauge,
   Siren,
   BellRing,
+  MessagesSquare,
   History,
 } from 'lucide-react';
 
@@ -70,6 +71,8 @@ const sections = [
       { href: '/system/queues', label: 'Queue Center', icon: Inbox, permissions: ROUTE_PERMISSIONS.queues },
       { href: '/system/performance', label: 'Performance', icon: Gauge, permissions: ROUTE_PERMISSIONS.systemLogs },
       { href: '/system/incidents', label: 'Incidents', icon: Siren, permissions: ROUTE_PERMISSIONS.incidents },
+      { href: '/system/notifications', label: 'Notification Center', icon: BellRing, permissions: ROUTE_PERMISSIONS.notifications },
+      { href: '/system/communications', label: 'Customer Communications', icon: MessagesSquare, permissions: ROUTE_PERMISSIONS.communications },
       { href: '/system/notifications', label: 'Notification Center', icon: BellRing, permissions: ROUTE_PERMISSIONS.notifications },
       { href: '/system/audit', label: 'Audit Trail', icon: History, permissions: ROUTE_PERMISSIONS.audit },
     ],
