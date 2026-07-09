@@ -1,4 +1,4 @@
-import { api, getAuthToken } from './api';
+import { api, apiBaseUrl, getAuthToken } from './api';
 
 /** Admin bell / notification platform API client. */
 
@@ -55,8 +55,5 @@ export function unregisterPushToken(token: string) {
 export function bellStreamUrl(): string | null {
   const token = getAuthToken();
   if (!token) return null;
-  const base =
-    process.env.NEXT_PUBLIC_API_URL ||
-    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001/api/v1` : '');
-  return `${base}/admin/notifications/stream?token=${encodeURIComponent(token)}`;
+  return `${apiBaseUrl()}/admin/notifications/stream?token=${encodeURIComponent(token)}`;
 }

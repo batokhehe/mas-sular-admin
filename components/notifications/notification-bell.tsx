@@ -10,12 +10,18 @@ import {
   bellStreamUrl, BellNotification,
 } from '@/lib/notifications';
 import { BELL_FILTERS, PRIORITY_DOT, relativeTime, groupByDay, reduceUnread, badgeLabel } from '@/lib/system/bell-view';
+import { trailingDebounce } from '@/lib/debounce';
+import { runWithFeedback } from '@/lib/admin-alert';
+
+const RECONNECT_DELAY_MS = 5000; // manual retry after EventSource error
+const TOAST_DURATION_MS = 4000;
+const LIST_INVALIDATE_DEBOUNCE_MS = 1500; // coalesce refetches during event storms
 
 const toast = Swal.mixin({
   toast: true,
   position: 'top-end',
   showConfirmButton: false,
-  timer: 4000,
+  timer: TOAST_DURATION_MS,
   timerProgressBar: true,
 });
 
@@ -47,20 +53,26 @@ export function NotificationBell() {
     let source: EventSource | null = null;
     let retryTimer: NodeJS.Timeout | null = null;
     let stopped = false;
+    // Event storms must not trigger one refetch per event.
+    const invalidateList = trailingDebounce(() => qc.invalidateQueries({ queryKey: ['bell-list'] }), LIST_INVALIDATE_DEBOUNCE_MS);
 
     const connect = () => {
       const url = bellStreamUrl();
       if (!url || stopped) return;
       source = new EventSource(url);
-      source.onopen = () => setConnection('live');
+      source.onopen = () => {
+        setConnection('live');
+        // Resync the badge after a reconnect — events during the gap were missed.
+        void qc.invalidateQueries({ queryKey: ['bell-count'] });
+      };
       source.onerror = () => {
         setConnection('offline');
         source?.close();
-        if (!stopped) retryTimer = setTimeout(connect, 5000); // reconnect backoff
+        if (!stopped) retryTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       };
       source.addEventListener('notification.created', (e) => {
         setUnread((c) => reduceUnread(c, { type: 'notification.created' }));
-        qc.invalidateQueries({ queryKey: ['bell-list'] });
+        invalidateList();
         try {
           const draft = JSON.parse((e as MessageEvent).data) as { title?: string; message?: string };
           void toast.fire({ icon: 'info', title: draft.title ?? 'Notification', text: draft.message ?? '' });
@@ -75,7 +87,7 @@ export function NotificationBell() {
         } catch {
           // ignore malformed
         }
-        qc.invalidateQueries({ queryKey: ['bell-list'] });
+        invalidateList();
       });
     };
 
@@ -88,6 +100,7 @@ export function NotificationBell() {
     return () => {
       stopped = true;
       if (retryTimer) clearTimeout(retryTimer);
+      invalidateList.cancel();
       source?.close();
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
@@ -115,20 +128,28 @@ export function NotificationBell() {
     async (item: BellNotification) => {
       setOpen(false);
       if (!item.isRead) {
-        markNotificationRead(item.id).catch(() => undefined);
-        setUnread((c) => Math.max(0, c - 1));
+        // No optimistic decrement here: the server's notification.read broadcast
+        // reaches this tab too, so a local decrement would double-count. The
+        // count refetch covers the SSE-disconnected case.
+        markNotificationRead(item.id)
+          .then(() => qc.invalidateQueries({ queryKey: ['bell-count'] }))
+          .catch(() => undefined);
       }
       if (item.url) router.push(item.url);
     },
-    [router],
+    [router, qc],
   );
 
-  const markAll = () => {
-    void markAllNotificationsRead().then(() => {
-      setUnread(0);
-      qc.invalidateQueries({ queryKey: ['bell-list'] });
+  const markAll = () =>
+    runWithFeedback({
+      loading: 'Marking all as read…',
+      success: 'All notifications marked as read',
+      action: async () => {
+        await markAllNotificationsRead();
+        setUnread(0); // idempotent with the SSE 'all' echo
+        qc.invalidateQueries({ queryKey: ['bell-list'] });
+      },
     });
-  };
 
   const badge = badgeLabel(unread);
   const groups = list.data ? groupByDay(list.data.items) : [];
