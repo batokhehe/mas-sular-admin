@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { TrendChart, BarChart, DonutChart } from '@/components/dashboard/charts';
 import { ROUTE_PERMISSIONS } from '@/lib/access';
 import { fetchSystemDashboard } from '@/lib/admin';
+import { formatNumberID } from '@/lib/utils/number';
 import {
   summaryCards, successRate, failureRate, errorBars, WORKER_DOT, WORKER_LABEL, KpiTone,
 } from '@/lib/system/dashboard-view';
@@ -16,7 +17,7 @@ import {
 const TONE_ICON: Record<KpiTone, string> = { default: 'bg-gray-100 text-gray-700', ok: 'bg-emerald-100 text-emerald-700', warn: 'bg-amber-100 text-amber-700', error: 'bg-red-100 text-red-700' };
 const MODULE_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#a855f7', '#22c55e', '#64748b', '#ec4899'];
 const dt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '—');
-const rp = (n: number) => n.toLocaleString('id-ID');
+const rp = formatNumberID;
 
 export default function SystemDashboardPage() {
   const [metric, setMetric] = useState<'requests' | 'response'>('requests');

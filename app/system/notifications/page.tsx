@@ -78,6 +78,13 @@ export default function NotificationCenterPage() {
     return () => window.clearInterval(t);
   }, []);
 
+  // MF-1: a pending filter-debounce must not fire (setState) after unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const patch = (p: Partial<NotificationCenterFilters>) => {
     setFilters((f) => ({ ...f, ...p }));
     setPage(1);

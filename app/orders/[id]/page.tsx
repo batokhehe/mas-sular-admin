@@ -21,11 +21,12 @@ import {
 import { formatAdminAddressLine } from '@/lib/format-address';
 import { ShipmentTimeline } from '@/app/orders/components/shipment-timeline';
 import { useAdminProfile } from '@/lib/auth';
+import { formatRupiah } from '@/lib/utils/number';
 import {
   ADMIN_LOADING_MESSAGES, ADMIN_SUCCESS_MESSAGES, confirmApprove, confirmReject, runWithFeedback,
 } from '@/lib/admin-alert';
 
-const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+const rp = formatRupiah;
 const dt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 export default function OrderDetailPage() {

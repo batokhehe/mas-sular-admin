@@ -15,9 +15,10 @@ import {
   actionBadge, entityHref, entrySummary, diffRows, AUDIT_FILTER_KEY, serializeFilters, parseFilters, csvFilename,
 } from '@/lib/system/audit-view';
 import { runWithFeedback } from '@/lib/admin-alert';
+import { formatNumberID } from '@/lib/utils/number';
 
 const dt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'medium' }) : '—');
-const rp = (n: number) => n.toLocaleString('id-ID');
+const rp = formatNumberID;
 
 export default function AuditTrailPage() {
   // Remembered filters (restored from localStorage on mount).

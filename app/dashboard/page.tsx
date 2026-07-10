@@ -14,8 +14,9 @@ import { ROUTE_PERMISSIONS } from '@/lib/access';
 import { fetchExecutiveDashboard, ExecutiveDashboard, HealthLevel } from '@/lib/admin';
 import { useAdminAuthStatus, useAdminProfile } from '@/lib/auth';
 import { TrendChart, DonutChart } from '@/components/dashboard/charts';
+import { formatRupiah } from '@/lib/utils/number';
 
-const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+const rp = formatRupiah;
 const RANGES = [
   { label: '7 Days', days: 7 },
   { label: '30 Days', days: 30 },
