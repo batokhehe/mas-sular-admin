@@ -428,6 +428,19 @@ export type AdminOrderDetail = AdminOrder & {
     verifiedByUserId?: string | null;
     createdAt?: string;
     transactions: Array<{ id: string; status: string; amount: number; createdAt: string }>;
+    // Phase 4 (read-only): latest gateway attempt for the payment panel.
+    gatewayTransactions?: Array<{
+      id: string;
+      provider: string;
+      channelCode: string;
+      status: string;
+      providerReference?: string | null;
+      providerTransactionId?: string | null;
+      vaNumber?: string | null;
+      expiryAt?: string | null;
+      failureReason?: string | null;
+      createdAt: string;
+    }>;
   } | null;
   shipment?: {
     id: string;

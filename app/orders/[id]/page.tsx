@@ -92,6 +92,8 @@ export default function OrderDetailPage() {
   const ops = opsQ.data;
   const actions = ops?.availableActions;
   const payment = order.payment;
+  // Latest gateway attempt, if this order was paid through a provider.
+  const gateway = payment?.gatewayTransactions?.[0] ?? null;
   const businessTotal = order.totalPrice;
   const uniqueCode = payment?.uniqueCode ?? null;
   const transferAmount = payment?.amount ?? businessTotal;
@@ -209,6 +211,23 @@ export default function OrderDetailPage() {
               <Field label="Verified At" value={dt(payment?.verifiedAt)} />
               <Field label="Verified By" value={payment?.verifiedByUserId ?? auditActor(ops, 'payment.verified') ?? '—'} />
             </div>
+
+            {/* Phase 4 — gateway attempt (READ-ONLY: no retry, no resend, no webhook). */}
+            {gateway ? (
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="mb-3 text-xs uppercase text-gray-400">Payment Gateway</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Payment Method" value={order.paymentMethod ?? "—"} />
+                  <Field label="Payment Channel" value={gateway.channelCode} />
+                  <Field label="Gateway Provider" value={gateway.provider} />
+                  <Field label="Provider Status" value={gateway.status} />
+                  <Field label="Gateway Transaction ID" value={gateway.providerTransactionId ?? gateway.providerReference ?? '—'} />
+                  <Field label="Expires At" value={dt(gateway.expiryAt)} />
+                  {gateway.vaNumber ? <Field label="Virtual Account" value={gateway.vaNumber} /> : null}
+                  {gateway.failureReason ? <Field label="Failure Reason" value={gateway.failureReason} /> : null}
+                </div>
+              </div>
+            ) : null}
             {payment?.manualReceiptUrl ? (
               <div className="mt-4">
                 <p className="mb-2 text-xs uppercase text-gray-400">Receipt</p>
