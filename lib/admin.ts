@@ -233,6 +233,8 @@ export type AdminRole = {
   id: string;
   name: string;
   description?: string | null;
+  /** Optimistic-concurrency token (C7b). Send it back as expectedUpdatedAt when editing. */
+  updatedAt: string;
   permissions: Array<{ permission: { id: string; action: string; subject: string } }>;
 };
 
@@ -266,7 +268,15 @@ export function createAdminRole(input: { name: string; description?: string; per
   });
 }
 
-export function updateAdminRole(id: string, input: Partial<{ name: string; description?: string | null; permissionIds: string[] }>) {
+/**
+ * `expectedUpdatedAt` must be the value from the GET that seeded the form (C7b).
+ * The server compares it in the write itself and answers 409 if the role moved on;
+ * re-reading it just before saving would make the check always pass.
+ */
+export function updateAdminRole(
+  id: string,
+  input: Partial<{ name: string; description?: string | null; permissionIds: string[] }> & { expectedUpdatedAt: string },
+) {
   return api<AdminRole>(`/admin/roles/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -380,6 +390,36 @@ export function fetchAdminShipments(params: PageParams & { status?: string } = {
   appendPage(q, params);
   const query = q.toString();
   return api<Paginated<AdminShipment>>(`/admin/shipments${query ? `?${query}` : ''}`);
+}
+
+/** One order's outcome from the packing action. Reported per order, never as a batch verdict. */
+export type PrepareShipmentResult = {
+  orderId: string;
+  ok: boolean;
+  status: string | null;
+  trackingNumber: string | null;
+  error: string | null;
+};
+
+/** The four Paxel services this application books. */
+export const PAXEL_SERVICE_OPTIONS = [
+  { value: 'PAXEL_INSTANT', label: 'Instant' },
+  { value: 'PAXEL_SAMEDAY', label: 'Same Day' },
+  { value: 'PAXEL_NEXTDAY', label: 'Next Day' },
+  { value: 'PAXEL_REGULAR', label: 'Regular' },
+] as const;
+
+/**
+ * Book one or more orders with the pickup slot the admin selected.
+ *
+ * `pickupAt` is required and never defaulted client-side: the courier pickup is
+ * a real appointment, so the operator states it explicitly.
+ */
+export function prepareShipments(input: { orderIds: string[]; pickupAt: string; service?: string }) {
+  return api<{ results: PrepareShipmentResult[]; booked: number; failed: number }>('/admin/orders/shipments/prepare', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export type AdminOrderDetail = AdminOrder & {
