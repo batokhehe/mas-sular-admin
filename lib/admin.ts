@@ -40,6 +40,16 @@ export type AdminProduct = {
   isNew: boolean;
   price: number;
   spicyLevel?: number | null;
+  // Real physical attributes of the PRODUCT itself, sent to Paxel as
+  // items[].weight/length/width/height on shipment creation, and used as the
+  // rate weight. Nullable: a product that has never been measured stays NULL
+  // rather than carrying an invented value. These are NOT the PaxelBox — the
+  // box is the outer carton and is chosen from total order quantity alone.
+  weightGram?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  isFragile?: boolean | null;
   createdAt: string;
 };
 
