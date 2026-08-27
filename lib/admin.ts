@@ -156,6 +156,17 @@ export type AdminOrder = {
   totalPrice: number;
   paymentMethod: string;
   createdAt: string;
+  /**
+   * Shipping snapshot taken at checkout. `GET /admin/orders` already returns
+   * these (the query uses Prisma `include`, so every Order scalar is sent) —
+   * the type simply omitted them. `shippingService` is the machine code the
+   * customer bought and is the source of truth for the Prepare Shipment
+   * default; `Shipment.service` is a display label until an AWB exists.
+   */
+  shippingProvider?: string | null;
+  shippingService?: string | null;
+  /** Human label quoted at checkout; preferred over Shipment.service for display. */
+  shippingServiceName?: string | null;
   user?: {
     name: string;
     email: string;
